@@ -2,220 +2,899 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Mobile App Meta Tags -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0a0a0c">
-    <meta name="mobile-web-app-capable" content="yes">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuestBoard: Personal Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --bg-dark: #0a0a0c;
-            --bg-panel: #141418;
-            --text-main: #e0e0e0;
-            --text-muted: #808080;
-            --accent-purple: #7b2cbf;
-            --accent-purple-glow: rgba(123, 44, 191, 0.3);
-            --accent-green: #00b4d8; 
-            --accent-red: #d00000;
-            --border-color: #2a2a35;
+        body { font-family: 'Inter', sans-serif; background-color: #000000; color: #e5e5e5; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #404040; }
+        
+        /* Progress Ring Animation */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
         }
         
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        /* Mobile-first padding adjustments */
-        body { background-color: var(--bg-dark); color: var(--text-main); padding: 10px; display: flex; flex-direction: column; align-items: center; -webkit-tap-highlight-color: transparent; }
-        
-        .container { width: 100%; max-width: 1000px; display: grid; gap: 15px; grid-template-columns: 1fr; }
-        @media(min-width: 768px) { 
-            body { padding: 20px; }
-            .container { grid-template-columns: 1fr 1fr; gap: 20px; } 
+        /* Sophisticated Checkboxes */
+        input[type="checkbox"] {
+            appearance: none;
+            background-color: #171717;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 1px solid #404040;
+            border-radius: 0.15em;
+            display: grid;
+            place-content: center;
+        }
+        input[type="checkbox"]::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em #9333ea;
+            background-color: #9333ea;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        input[type="checkbox"]:checked::before {
+            transform: scale(1);
+        }
+        input[type="checkbox"]:checked {
+            border-color: #9333ea;
         }
         
-        .panel { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
-        h2, h3 { color: var(--text-main); font-weight: 500; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+        /* Hide number arrows */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
         
-        /* Master Ring */
-        .master-ring-container { display: flex; justify-content: center; align-items: center; flex-direction: column; grid-column: 1 / -1; }
-        .progress-circle { position: relative; width: 130px; height: 130px; border-radius: 50%; background: conic-gradient(var(--accent-purple) 0%, var(--bg-dark) 0%); display: flex; justify-content: center; align-items: center; box-shadow: 0 0 20px var(--accent-purple-glow); margin: 10px 0; }
-        .progress-circle::after { content: ''; position: absolute; width: 110px; height: 110px; background: var(--bg-panel); border-radius: 50%; }
-        .progress-value { position: relative; z-index: 1; font-size: 1.8rem; font-weight: bold; color: var(--text-main); }
-        
-        /* Context & Setup */
-        .context-bar { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; grid-column: 1 / -1; flex-wrap: wrap; }
-        .btn { background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-muted); padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 0.9rem; font-weight: 500; }
-        .btn.active, .btn:active { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
-        .btn-danger { background: var(--bg-dark); border: 1px solid var(--accent-red); color: var(--accent-red); }
-        
-        /* List Items */
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; background: var(--bg-dark); border-radius: 6px; margin-bottom: 8px; font-size: 0.95rem; }
-        .list-item input[type="checkbox"] { accent-color: var(--accent-purple); width: 22px; height: 22px; margin-left: 10px; }
-        
-        /* Inputs: font-size 16px is required to stop iOS from auto-zooming */
-        input[type="text"], input[type="number"] { background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); padding: 10px; border-radius: 6px; width: 100%; outline: none; font-size: 16px; }
-        input:focus { border-color: var(--accent-purple); }
-        
-        /* Chart */
-        .chart-container { position: relative; height: 280px; width: 100%; }
-
-        /* Settings & Data Management */
-        .data-management { display: flex; gap: 10px; margin-top: 10px; grid-column: 1 / -1; justify-content: center; flex-wrap: wrap; }
+        /* Inputs styling */
+        .dark-input {
+            background-color: #171717;
+            border: 1px solid #262626;
+            color: #d4d4d4;
+            transition: border-color 0.2s;
+        }
+        .dark-input:focus {
+            outline: none;
+            border-color: #9333ea;
+        }
     </style>
 </head>
-<body>
+<body class="antialiased flex flex-col relative pb-20 md:pb-6">
 
-    <div class="container">
-        <!-- Master Ring -->
-        <div class="panel master-ring-container">
-            <h2 style="margin-bottom: 5px;">Today's Progress</h2>
-            <div class="progress-circle" id="masterRing" style="background: conic-gradient(var(--accent-purple) 0%, var(--bg-dark) 0%);">
-                <div class="progress-value" id="masterValue">0%</div>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+        <div class="w-12 h-12 border-2 border-neutral-800 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+        <p class="text-purple-500 font-light tracking-widest text-sm animate-pulse">SYNCHRONIZING</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-neutral-900 border border-neutral-800 text-neutral-300 px-4 py-3 rounded-md shadow-2xl transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center gap-3">
+        <div class="text-purple-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <span id="toast-msg" class="font-light text-sm tracking-wide">Saved.</span>
+    </div>
+
+    <!-- Main Content -->
+    <div id="app-content" class="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-8 hidden opacity-0 transition-opacity duration-700 flex-1 flex flex-col gap-8">
+        
+        <!-- TOP: Today's Progress Ring -->
+        <div class="flex flex-col items-center justify-center relative">
+            <h1 class="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-6">Today's Progress</h1>
+            <div class="relative w-40 h-40 flex items-center justify-center">
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="#171717" stroke-width="4"></circle>
+                </svg>
+                <svg class="absolute inset-0 w-full h-full progress-ring__circle" viewBox="0 0 100 100">
+                    <circle id="master-ring" cx="50" cy="50" r="46" fill="none" stroke="#9333ea" stroke-width="4" stroke-dasharray="289.02" stroke-dashoffset="289.02" stroke-linecap="round"></circle>
+                </svg>
+                <div class="absolute flex flex-col items-center justify-center">
+                    <span id="master-percentage" class="text-4xl font-light tracking-tighter text-white">0%</span>
+                </div>
+            </div>
+            <p id="active-date-display" class="text-neutral-400 font-light text-sm mt-4 tracking-wide"></p>
+        </div>
+
+        <!-- CONTEXT & CALENDAR -->
+        <div class="flex flex-col items-center gap-4">
+            <!-- Context Toggle -->
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Context</span>
+                <div class="flex items-center bg-neutral-900 border border-neutral-800 rounded-md p-1">
+                    <button onclick="setContext('WFH')" id="btn-wfh" class="px-6 py-1.5 rounded text-xs tracking-wider transition-all duration-300 text-neutral-500 hover:text-neutral-300">WFH</button>
+                    <button onclick="setContext('WFO')" id="btn-wfo" class="px-6 py-1.5 rounded text-xs tracking-wider transition-all duration-300 text-neutral-500 hover:text-neutral-300">WFO</button>
+                    <button onclick="setContext('Weekend')" id="btn-wknd" class="px-6 py-1.5 rounded text-xs tracking-wider transition-all duration-300 text-neutral-500 hover:text-neutral-300">WEEKEND</button>
+                </div>
+            </div>
+            
+            <!-- Calendar Ribbon -->
+            <div class="w-full border-t border-b border-neutral-900 py-3 relative">
+                <div id="calendar-ribbon" class="flex gap-2 overflow-x-auto pb-2 scroll-smooth items-center justify-start md:justify-center px-2 hide-scrollbar">
+                    <!-- Populated via JS -->
+                </div>
             </div>
         </div>
 
-        <!-- Context & Setup -->
-        <div class="context-bar">
-            <button class="btn active">Work from Home</button>
-            <button class="btn">Work from Office</button>
-            <button class="btn">Weekend</button>
-        </div>
+        <!-- MAIN LAYOUT: Chart + Modules -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- LEFT COLUMN: Chart & Side Quests -->
+            <div class="flex flex-col gap-6 lg:col-span-1">
+                <!-- Radar Chart -->
+                <div class="w-full flex justify-center py-6 bg-neutral-950 rounded-lg border border-neutral-900 relative">
+                    <div class="absolute top-4 left-4 text-[10px] uppercase tracking-[0.2em] text-neutral-600">Attribute Matrix</div>
+                    <div class="w-full max-w-[300px] aspect-square mt-4">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Side Quests -->
+                <section class="bg-neutral-950 border border-neutral-900 rounded-lg p-6 flex-1 flex flex-col">
+                    <div class="flex justify-between items-end mb-6 pb-2 border-b border-neutral-900">
+                        <h2 class="text-xs uppercase tracking-[0.2em] text-neutral-500">Side Quests</h2>
+                    </div>
+                    <form onsubmit="addQuest(event)" class="flex gap-2 mb-4">
+                        <input type="text" id="quest-desc" placeholder="New quest..." required class="flex-1 dark-input rounded px-3 py-1.5 text-sm font-light">
+                        <button type="submit" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 rounded border border-neutral-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </form>
+                    <div id="quests-list" class="flex flex-col gap-2 flex-1">
+                        <!-- Populated via JS -->
+                    </div>
+                </section>
+            </div>
 
-        <!-- Radar Chart -->
-        <div class="panel">
-            <div class="panel-header"><h2>Attribute Matrix</h2></div>
-            <div class="chart-container">
-                <canvas id="radarChart"></canvas>
-            </div>
-        </div>
+            <!-- RIGHT COLUMN: Core Trackers -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:col-span-2">
+                
+                <!-- Good Habits -->
+                <section class="bg-neutral-950 border border-neutral-900 rounded-lg p-6 flex flex-col">
+                    <h2 class="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-6 pb-2 border-b border-neutral-900">Good Habits</h2>
+                    <div id="habits-list" class="space-y-3 flex-1 mb-4">
+                        <!-- Populated via JS -->
+                    </div>
+                    <form onsubmit="addHabit(event)" class="flex gap-2 mt-auto pt-4 border-t border-neutral-900">
+                        <input type="text" id="habit-desc" placeholder="Add habit..." required class="flex-1 dark-input rounded px-3 py-1.5 text-sm font-light">
+                        <button type="submit" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 rounded border border-neutral-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </form>
+                </section>
 
-        <!-- Modules -->
-        <div class="panel">
-            <div class="panel-header"><h2>Good Habits</h2></div>
-            <div id="habitsList">
-                <div class="list-item"><span>Morning Stretch</span><input type="checkbox"></div>
-                <div class="list-item"><span>Read 10 Pages</span><input type="checkbox"></div>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <input type="text" placeholder="New habit...">
-                <button class="btn" style="padding: 10px 15px;">+</button>
-            </div>
-        </div>
+                <!-- Hydration -->
+                <section class="bg-neutral-950 border border-neutral-900 rounded-lg p-6 flex flex-col">
+                    <h2 class="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-6 pb-2 border-b border-neutral-900">Hydration</h2>
+                    <div class="flex-1 flex flex-col items-center justify-center">
+                        <div class="flex items-center gap-6 bg-neutral-900 p-6 rounded-full border border-neutral-800">
+                            <button onclick="changeWater(-1)" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white transition-colors border border-neutral-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                            </button>
+                            <div class="text-center w-20">
+                                <span class="text-4xl font-light text-purple-500" id="val-water">0</span>
+                                <div class="text-xs text-neutral-500 tracking-wide mt-1 flex items-center justify-center gap-1">
+                                    <span>/</span>
+                                    <input type="number" id="input-water-target" class="w-8 bg-transparent border-b border-neutral-700 text-center focus:border-purple-500 focus:outline-none text-neutral-400" min="1" onchange="saveWaterTarget()">
+                                </div>
+                            </div>
+                            <button onclick="changeWater(1)" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white transition-colors border border-neutral-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
-        <div class="panel">
-            <div class="panel-header"><h2>Hydration</h2></div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                <span style="font-size: 0.95rem;">Target (Liters)</span>
-                <input type="number" value="3" step="0.5" style="width: 70px; text-align: right; padding: 8px;">
-            </div>
-            <div style="margin-top: 10px;">
-                <button class="btn" style="width: 100%; background: var(--accent-green); color: #fff; padding: 12px; font-weight: bold;">+ 0.5L Logged</button>
-            </div>
-        </div>
+                <!-- Personal Growth -->
+                <section class="bg-neutral-950 border border-neutral-900 rounded-lg p-6 flex flex-col">
+                    <h2 class="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-6 pb-2 border-b border-neutral-900">Personal Growth</h2>
+                    <div id="growth-list" class="space-y-4 flex-1 mb-4">
+                        <!-- Populated via JS -->
+                    </div>
+                    <form onsubmit="addGrowthCat(event)" class="flex gap-2 mt-auto pt-4 border-t border-neutral-900">
+                        <input type="text" id="growth-desc" placeholder="New category..." required class="flex-1 dark-input rounded px-3 py-1.5 text-sm font-light">
+                        <button type="submit" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 rounded border border-neutral-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </form>
+                </section>
 
-        <div class="panel">
-            <div class="panel-header"><h2>Personal Growth</h2></div>
-            <div class="list-item">
-                <span>CFA Prep (Hrs)</span>
-                <input type="number" value="0" style="width: 70px; padding: 8px; text-align: right;">
-            </div>
-            <div class="list-item">
-                <span>SQL / Power BI (Hrs)</span>
-                <input type="number" value="0" style="width: 70px; padding: 8px; text-align: right;">
-            </div>
-        </div>
+                <!-- Spending -->
+                <section class="bg-neutral-950 border border-neutral-900 rounded-lg p-6 flex flex-col">
+                    <div class="flex justify-between items-end mb-6 pb-2 border-b border-neutral-900">
+                        <h2 class="text-xs uppercase tracking-[0.2em] text-neutral-500">Spending</h2>
+                        <div class="flex items-center gap-1 text-[10px] text-neutral-600 tracking-wide">
+                            <span>Limit: ₹</span>
+                            <input type="number" id="input-budget" class="w-16 bg-transparent border-b border-neutral-700 text-right focus:border-purple-500 focus:outline-none text-neutral-400" onchange="saveBudgetTarget()">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-5">
+                        <div class="flex justify-between text-xs text-neutral-400 mb-2 font-light">
+                            <span>Spent: ₹<span id="spent-disp" class="text-neutral-200">0</span></span>
+                            <span id="remaining-label">Left: ₹<span id="remaining-disp" class="text-neutral-200">0</span></span>
+                        </div>
+                        <div class="h-1.5 w-full bg-neutral-900 rounded-full overflow-hidden">
+                            <div id="budget-progress-bar" class="h-full bg-purple-600 transition-all duration-500 w-0"></div>
+                        </div>
+                    </div>
 
-        <div class="panel">
-            <div class="panel-header"><h2>Spending (₹)</h2></div>
-            <div style="display: flex; gap: 8px; margin-bottom: 15px; align-items: stretch;">
-                <input type="text" placeholder="Description" style="flex: 2;">
-                <input type="number" placeholder="₹" style="flex: 1; padding: 8px;">
-                <button class="btn" style="padding: 10px 15px;">+</button>
-            </div>
-            <div class="list-item" style="color: var(--text-muted); font-size: 0.85rem; justify-content: center;">
-                Limit: ₹15,000 &nbsp;|&nbsp; Rem: <span style="color: var(--accent-green); margin-left: 5px; font-weight: bold;">₹15,000</span>
-            </div>
-        </div>
+                    <form onsubmit="addExpense(event)" class="flex gap-2 mb-4">
+                        <input type="text" id="expense-desc" placeholder="Description..." required class="flex-1 dark-input rounded px-3 py-1.5 text-sm font-light">
+                        <input type="number" id="expense-amt" placeholder="₹" required min="1" step="1" class="w-20 dark-input rounded px-3 py-1.5 text-sm font-light">
+                        <button type="submit" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 rounded border border-neutral-700 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </form>
 
-        <div class="panel">
-            <div class="panel-header"><h2>Side Quests</h2></div>
-            <div id="questList">
-                <!-- Quests go here -->
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 10px;">
-                <input type="text" placeholder="Add task...">
-                <button class="btn" style="padding: 10px 15px;">+</button>
-            </div>
-        </div>
+                    <div class="mt-auto">
+                        <button onclick="toggleExpenseLogs()" class="w-full py-1.5 text-xs text-neutral-500 hover:text-purple-400 transition-colors border border-neutral-800 rounded flex items-center justify-center gap-2">
+                            <span>View Today's Logs</span>
+                            <svg id="expense-log-icon" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="expense-logs-container" class="hidden flex-col gap-2 mt-2 max-h-32 overflow-y-auto">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </section>
 
-        <!-- Manual Sync Data Management -->
-        <div class="data-management">
-            <button class="btn" onclick="exportData()">Export Data</button>
-            <button class="btn" onclick="importData()">Import Data</button>
+            </div>
         </div>
     </div>
 
-    <script>
-        // Chart Initialization
-        const ctx = document.getElementById('radarChart').getContext('2d');
-        const radarChart = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: ['Efficiency', 'Habits', 'Hydration', 'Growth', 'Spending', 'Quests'],
-                datasets: [{
-                    data: [0, 0, 0, 0, 0, 0],
-                    backgroundColor: 'rgba(123, 44, 191, 0.25)',
-                    borderColor: '#7b2cbf',
-                    pointBackgroundColor: '#7b2cbf',
-                    pointBorderColor: '#fff',
-                    borderWidth: 2,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    r: {
-                        angleLines: { color: 'rgba(255, 255, 255, 0.05)' },
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        pointLabels: { color: '#e0e0e0', font: { size: 11, family: 'Segoe UI' } },
-                        ticks: { display: false, min: 0, max: 100 }
-                    }
-                },
-                plugins: { legend: { display: false } }
+    <!-- Modals for Editing Lists -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-neutral-950 border border-neutral-800 p-6 rounded-lg shadow-2xl w-full max-w-sm flex flex-col gap-4">
+            <h3 class="text-sm uppercase tracking-widest text-neutral-400" id="edit-modal-title">Edit Item</h3>
+            <input type="text" id="edit-modal-input" class="w-full dark-input rounded px-3 py-2 text-sm font-light">
+            <div class="flex justify-end gap-3 mt-2">
+                <button onclick="closeEditModal()" class="text-xs text-neutral-500 hover:text-neutral-300 tracking-wider">CANCEL</button>
+                <button onclick="saveEditModal()" class="text-xs bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded tracking-wider transition-colors">SAVE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs & Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Vars
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'questboard-tracker';
+        let firebaseConfig = null;
+        try { firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null; } catch (e) {}
+
+        let app, db, auth, userId;
+        
+        // Dates
+        const realTodayStr = new Date().toLocaleDateString('en-CA'); 
+        let activeDateStr = realTodayStr; 
+        let chartInstance = null;
+        let expensesVisible = false;
+
+        // Edit Modal State
+        let editingConfig = { type: null, id: null };
+
+        // Data State
+        let settings = {
+            budget: 50000,
+            waterTarget: 8,
+            habits: [
+                { id: 'h1', name: 'Morning Read' },
+                { id: 'h2', name: 'Stretching' }
+            ],
+            growth: [
+                { id: 'g1', name: 'Quantitative Finance & Econometrics', target: 2 },
+                { id: 'g2', name: 'SQL & Power BI', target: 1 }
+            ]
+        };
+
+        let state = {
+            context: 'WFH',
+            habitsDone: {},   // { h1: true }
+            water: 0,
+            growthDone: {},   // { g1: 1.5 }
+            expenses: [],     // { id, desc, amt }
+            quests: []        // { id, desc, done }
+        };
+        
+        let monthlySpent = 0;
+
+        // Initialization
+        async function initApp() {
+            if (!firebaseConfig) return showError("Database configuration missing.");
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                if (!auth.currentUser) throw new Error("Auth failed");
+                userId = auth.currentUser.uid;
+                
+                initRadarChart();
+                await loadSettings();
+                await setDateView(realTodayStr);
+                
+                document.getElementById('loading-overlay').classList.add('hidden');
+                const appContent = document.getElementById('app-content');
+                appContent.classList.remove('hidden');
+                setTimeout(() => appContent.classList.remove('opacity-0'), 50);
+
+            } catch (error) {
+                console.error("Init Error:", error);
+                showError("Connection failed.");
             }
-        });
-
-        function exportData() {
-            const data = JSON.stringify(localStorage);
-            const blob = new Blob([data], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'QuestBoard_Backup.txt';
-            a.click();
         }
 
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'text/plain';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = event => {
-                    const data = JSON.parse(event.target.result);
-                    Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
-                    alert('Data imported! Refreshing page...');
-                    location.reload();
-                };
-                reader.readAsText(file);
+        // Database calls
+        async function loadSettings() {
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'settings');
+            const snap = await getDoc(docRef);
+            if (snap.exists()) settings = { ...settings, ...snap.data() };
+            else await setDoc(docRef, settings);
+        }
+
+        async function saveSettings() {
+            if (!userId) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'settings');
+            await setDoc(docRef, settings);
+            showToast();
+        }
+
+        async function updateDailyDB() {
+            if (!userId) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'logs', activeDateStr);
+            await setDoc(docRef, state, { merge: true });
+        }
+
+        async function fetchMonthlyExpenses() {
+            const targetMonthStr = activeDateStr.substring(0, 7);
+            const logsRef = collection(db, 'artifacts', appId, 'users', userId, 'logs');
+            const querySnapshot = await getDocs(logsRef);
+            
+            monthlySpent = 0;
+            querySnapshot.forEach((docSnap) => {
+                if (docSnap.id.startsWith(targetMonthStr)) {
+                    const data = docSnap.data();
+                    if (data.expenses) {
+                        data.expenses.forEach(exp => { monthlySpent += Number(exp.amt || 0); });
+                    }
+                }
+            });
+        }
+
+        window.setDateView = async function(dateStr) {
+            activeDateStr = dateStr;
+            renderCalendarRibbon();
+            
+            const d = new Date(dateStr);
+            const isToday = dateStr === realTodayStr;
+            document.getElementById('active-date-display').textContent = isToday ? "TODAY'S LOG" : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
+
+            const dailyRef = doc(db, 'artifacts', appId, 'users', userId, 'logs', activeDateStr);
+            const snap = await getDoc(dailyRef);
+            
+            if (snap.exists()) {
+                state = { context: 'WFH', habitsDone: {}, water: 0, growthDone: {}, expenses: [], quests: [], ...snap.data() };
+            } else {
+                state = { context: 'WFH', habitsDone: {}, water: 0, growthDone: {}, expenses: [], quests: [] };
+                if (isToday) await updateDailyDB();
+            }
+
+            await fetchMonthlyExpenses();
+            renderAll();
+        }
+
+        // --- Core Interactions ---
+        window.setContext = async function(ctx) {
+            state.context = ctx;
+            renderContext();
+            await updateDailyDB();
+        }
+
+        window.addHabit = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('habit-desc');
+            const name = input.value.trim();
+            if (!name) return;
+            const id = 'h_' + Date.now();
+            settings.habits.push({ id, name });
+            input.value = '';
+            await saveSettings();
+            renderHabits();
+            calculateOverall();
+        }
+
+        window.deleteHabit = async function(id) {
+            settings.habits = settings.habits.filter(h => h.id !== id);
+            delete state.habitsDone[id];
+            await saveSettings();
+            await updateDailyDB();
+            renderHabits();
+            calculateOverall();
+        }
+
+        window.toggleHabit = async function(id, isChecked) {
+            state.habitsDone[id] = isChecked;
+            await updateDailyDB();
+            renderHabits();
+            calculateOverall();
+        }
+
+        window.changeWater = async function(delta) {
+            state.water = Math.max(0, (state.water || 0) + delta);
+            document.getElementById('val-water').textContent = state.water;
+            await updateDailyDB();
+            calculateOverall();
+        }
+
+        window.saveWaterTarget = async function() {
+            settings.waterTarget = parseInt(document.getElementById('input-water-target').value) || 8;
+            await saveSettings();
+            calculateOverall();
+        }
+
+        window.addGrowthCat = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('growth-desc');
+            const name = input.value.trim();
+            if (!name) return;
+            const id = 'g_' + Date.now();
+            settings.growth.push({ id, name, target: 1 });
+            input.value = '';
+            await saveSettings();
+            renderGrowth();
+            calculateOverall();
+        }
+        
+        window.deleteGrowthCat = async function(id) {
+            settings.growth = settings.growth.filter(g => g.id !== id);
+            delete state.growthDone[id];
+            await saveSettings();
+            await updateDailyDB();
+            renderGrowth();
+            calculateOverall();
+        }
+
+        window.saveGrowthTarget = async function(id, val) {
+            const cat = settings.growth.find(g => g.id === id);
+            if(cat) {
+                cat.target = parseFloat(val) || 0;
+                await saveSettings();
+                calculateOverall();
+            }
+        }
+        
+        window.saveGrowthProgress = async function(id, val) {
+            state.growthDone[id] = parseFloat(val) || 0;
+            await updateDailyDB();
+            calculateOverall();
+        }
+
+        window.addExpense = async function(e) {
+            e.preventDefault();
+            const desc = document.getElementById('expense-desc').value;
+            const amt = parseFloat(document.getElementById('expense-amt').value);
+            if (!desc || isNaN(amt) || amt <= 0) return;
+
+            const expId = 'exp_' + Date.now();
+            state.expenses.push({ id: expId, desc, amt });
+            monthlySpent += amt; 
+            
+            document.getElementById('expense-desc').value = '';
+            document.getElementById('expense-amt').value = '';
+            
+            await updateDailyDB();
+            renderSpending();
+            calculateOverall();
+            showToast();
+        }
+        
+        window.deleteExpense = async function(expId) {
+            const exp = state.expenses.find(e => e.id === expId);
+            if (exp) {
+                monthlySpent -= exp.amt;
+                state.expenses = state.expenses.filter(e => e.id !== expId);
+                await updateDailyDB();
+                renderSpending();
+                calculateOverall();
+            }
+        }
+
+        window.saveBudgetTarget = async function() {
+            settings.budget = parseFloat(document.getElementById('input-budget').value) || 50000;
+            await saveSettings();
+            renderSpending();
+            calculateOverall();
+        }
+
+        window.toggleExpenseLogs = function() {
+            expensesVisible = !expensesVisible;
+            const container = document.getElementById('expense-logs-container');
+            const icon = document.getElementById('expense-log-icon');
+            if (expensesVisible) {
+                container.classList.remove('hidden');
+                container.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                container.classList.add('hidden');
+                container.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        window.addQuest = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('quest-desc');
+            const desc = input.value.trim();
+            if (!desc) return;
+            state.quests.push({ id: Date.now(), desc, done: false });
+            input.value = '';
+            await updateDailyDB();
+            renderQuests();
+            calculateOverall();
+        }
+
+        window.toggleQuest = async function(id, isChecked) {
+            const q = state.quests.find(q => q.id === id);
+            if (q) {
+                q.done = isChecked;
+                await updateDailyDB();
+                renderQuests();
+                calculateOverall();
+            }
+        }
+        
+        window.deleteQuest = async function(id) {
+            state.quests = state.quests.filter(q => q.id !== id);
+            await updateDailyDB();
+            renderQuests();
+            calculateOverall();
+        }
+
+        // --- Editing Names Modal ---
+        window.openEditModal = function(type, id, currentName) {
+            editingConfig = { type, id };
+            document.getElementById('edit-modal-title').textContent = type === 'habit' ? 'Edit Habit Name' : 'Edit Category Name';
+            document.getElementById('edit-modal-input').value = currentName;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-modal').classList.add('flex');
+            document.getElementById('edit-modal-input').focus();
+        }
+        
+        window.closeEditModal = function() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('flex');
+        }
+        
+        window.saveEditModal = async function() {
+            const newName = document.getElementById('edit-modal-input').value.trim();
+            if (!newName) return;
+            
+            if (editingConfig.type === 'habit') {
+                const h = settings.habits.find(x => x.id === editingConfig.id);
+                if (h) h.name = newName;
+                renderHabits();
+            } else if (editingConfig.type === 'growth') {
+                const g = settings.growth.find(x => x.id === editingConfig.id);
+                if (g) g.name = newName;
+                renderGrowth();
+            }
+            
+            closeEditModal();
+            await saveSettings();
+            calculateOverall();
+        }
+
+        // --- Rendering ---
+        function renderAll() {
+            renderContext();
+            renderHabits();
+            renderHydration();
+            renderGrowth();
+            renderSpending();
+            renderQuests();
+            calculateOverall();
+        }
+
+        function renderContext() {
+            const styles = {
+                active: "px-6 py-1.5 rounded text-xs tracking-wider transition-all duration-300 bg-neutral-800 text-purple-400 border border-neutral-700 shadow-lg",
+                inactive: "px-6 py-1.5 rounded text-xs tracking-wider transition-all duration-300 text-neutral-500 hover:text-neutral-300"
             };
-            input.click();
+            ['wfh', 'wfo', 'wknd'].forEach(id => { document.getElementById(`btn-${id}`).className = styles.inactive; });
+            const map = { 'WFH': 'wfh', 'WFO': 'wfo', 'Weekend': 'wknd' };
+            const activeBtn = document.getElementById(`btn-${map[state.context]}`);
+            if (activeBtn) activeBtn.className = styles.active;
         }
+
+        function renderCalendarRibbon() {
+            const container = document.getElementById('calendar-ribbon');
+            container.innerHTML = '';
+            for(let i=7; i>=-6; i--) {
+                const d = new Date(realTodayStr);
+                d.setDate(d.getDate() - i);
+                const loopDateStr = d.toLocaleDateString('en-CA');
+                const displayNum = d.getDate();
+                
+                const btn = document.createElement('button');
+                const isActive = loopDateStr === activeDateStr;
+                
+                btn.className = `flex flex-col items-center justify-center w-10 h-10 rounded-full shrink-0 transition-colors border ${
+                    isActive ? 'bg-neutral-800 border-purple-500 text-white' : 'bg-transparent border-neutral-900 text-neutral-600 hover:border-neutral-700'
+                }`;
+                btn.onclick = () => setDateView(loopDateStr);
+                btn.innerHTML = `<span class="text-[10px] font-light leading-none">${displayNum}</span>`;
+                container.appendChild(btn);
+            }
+            setTimeout(() => {
+                const activeBtn = container.querySelector('.border-purple-500');
+                if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }, 10);
+        }
+
+        function renderHabits() {
+            const list = document.getElementById('habits-list');
+            list.innerHTML = '';
+            if (settings.habits.length === 0) list.innerHTML = '<p class="text-xs text-neutral-600 font-light">No habits defined.</p>';
+            
+            settings.habits.forEach(h => {
+                const isDone = state.habitsDone[h.id] || false;
+                list.innerHTML += `
+                    <div class="flex items-center justify-between group">
+                        <div class="flex items-center flex-1">
+                            <input type="checkbox" id="chk_${h.id}" ${isDone ? 'checked' : ''} onchange="toggleHabit('${h.id}', this.checked)" class="cursor-pointer shrink-0">
+                            <label for="chk_${h.id}" class="ml-3 text-sm font-light ${isDone ? 'text-neutral-600 line-through' : 'text-neutral-300'} cursor-pointer transition-colors flex-1">${h.name}</label>
+                        </div>
+                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditModal('habit', '${h.id}', '${h.name}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                            <button onclick="deleteHabit('${h.id}')" class="text-neutral-600 hover:text-red-500 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderHydration() {
+            document.getElementById('input-water-target').value = settings.waterTarget || 8;
+            document.getElementById('val-water').textContent = state.water || 0;
+        }
+
+        function renderGrowth() {
+            const list = document.getElementById('growth-list');
+            list.innerHTML = '';
+            if (settings.growth.length === 0) list.innerHTML = '<p class="text-xs text-neutral-600 font-light">No growth categories.</p>';
+            
+            settings.growth.forEach(g => {
+                const doneHours = state.growthDone[g.id] || 0;
+                list.innerHTML += `
+                    <div class="flex flex-col group gap-2 pb-3 border-b border-neutral-900/50 last:border-0 last:pb-0">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-light text-neutral-300 truncate pr-2">${g.name}</span>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="openEditModal('growth', '${g.id}', '${g.name}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                                <button onclick="deleteGrowthCat('${g.id}')" class="text-neutral-600 hover:text-red-500 p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-1 text-[10px] text-neutral-600 tracking-wide">
+                                <span>Target (h):</span>
+                                <input type="number" onchange="saveGrowthTarget('${g.id}', this.value)" value="${g.target}" class="w-10 bg-transparent border-b border-neutral-700 text-center focus:border-purple-500 focus:outline-none text-neutral-400" min="0" step="0.5">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" onchange="saveGrowthProgress('${g.id}', this.value)" value="${doneHours}" class="w-14 dark-input rounded px-1.5 py-1 text-center font-light focus:border-purple-600 text-sm" min="0" step="0.5">
+                                <span class="text-xs text-neutral-500">hr</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderSpending() {
+            document.getElementById('input-budget').value = settings.budget;
+            document.getElementById('spent-disp').textContent = monthlySpent.toLocaleString('en-IN');
+            
+            const remaining = settings.budget - monthlySpent;
+            const remainingLabel = document.getElementById('remaining-label');
+            const bar = document.getElementById('budget-progress-bar');
+            
+            document.getElementById('remaining-disp').textContent = Math.abs(remaining).toLocaleString('en-IN');
+            
+            let percentSpent = (monthlySpent / settings.budget) * 100;
+            if (percentSpent > 100) percentSpent = 100;
+            bar.style.width = `${percentSpent}%`;
+            
+            if (remaining >= 0) {
+                remainingLabel.className = "text-neutral-400";
+                bar.className = "h-full transition-all duration-500 bg-purple-600";
+            } else {
+                remainingLabel.className = "text-red-500 font-medium";
+                remainingLabel.innerHTML = `Over: ₹<span id="remaining-disp">${Math.abs(remaining).toLocaleString('en-IN')}</span>`;
+                bar.className = "h-full transition-all duration-500 bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)]";
+            }
+
+            // Render Logs
+            const logContainer = document.getElementById('expense-logs-container');
+            logContainer.innerHTML = '';
+            if (state.expenses.length === 0) {
+                logContainer.innerHTML = '<span class="text-xs text-neutral-600 italic">No expenses logged today.</span>';
+            } else {
+                state.expenses.forEach(exp => {
+                    logContainer.innerHTML += `
+                        <div class="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-2 rounded text-sm font-light">
+                            <span class="text-neutral-300 truncate pr-2">${exp.desc}</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-neutral-400">₹${Number(exp.amt).toLocaleString('en-IN')}</span>
+                                <button onclick="deleteExpense('${exp.id}')" class="text-neutral-600 hover:text-red-500"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function renderQuests() {
+            const list = document.getElementById('quests-list');
+            list.innerHTML = '';
+            if (state.quests.length === 0) list.innerHTML = '<p class="text-xs text-neutral-600 font-light mt-2">Optimal efficiency active. No side tasks.</p>';
+
+            state.quests.forEach(q => {
+                list.innerHTML += `
+                    <div class="flex items-center gap-3 p-2 rounded bg-neutral-900 border border-neutral-800 group">
+                        <input type="checkbox" id="q_${q.id}" ${q.done ? 'checked' : ''} onchange="toggleQuest(${q.id}, this.checked)" class="cursor-pointer shrink-0">
+                        <label for="q_${q.id}" class="text-sm font-light truncate flex-1 cursor-pointer transition-colors ${q.done ? 'text-neutral-600 line-through' : 'text-neutral-300'}">${q.desc}</label>
+                        <button onclick="deleteQuest(${q.id})" class="text-neutral-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Chart & Metrics ---
+        function initRadarChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Efficiency', 'Good Habits', 'Hydration', 'Personal Growth', 'Spending', 'Side Quests'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0],
+                        backgroundColor: 'rgba(147, 51, 234, 0.15)', // Purple 600
+                        borderColor: 'rgba(147, 51, 234, 0.8)',
+                        borderWidth: 1.5,
+                        pointBackgroundColor: '#e5e5e5',
+                        pointBorderColor: '#000000',
+                        pointHoverBackgroundColor: '#ffffff',
+                        pointHoverBorderColor: 'rgba(147, 51, 234, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            ticks: { display: false, stepSize: 25 },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: {
+                                color: '#a3a3a3', // neutral-400
+                                font: { family: 'Inter', size: 10, weight: '400' }
+                            }
+                        }
+                    },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                }
+            });
+        }
+
+        function calculateOverall() {
+            // 1. Habits
+            const hTotal = settings.habits.length;
+            const hDone = settings.habits.filter(h => state.habitsDone[h.id]).length;
+            const habitsScore = hTotal > 0 ? (hDone / hTotal) * 100 : 100;
+            
+            // 2. Hydration
+            const waterScore = Math.min(100, ((state.water || 0) / (settings.waterTarget || 8)) * 100);
+            
+            // 3. Personal Growth (Average of all categories)
+            let allGrowthScore = 100;
+            if (settings.growth.length > 0) {
+                let totalG = 0;
+                settings.growth.forEach(g => {
+                    if (g.target > 0) {
+                        totalG += Math.min(100, ((state.growthDone[g.id] || 0) / g.target) * 100);
+                    } else {
+                        totalG += 100;
+                    }
+                });
+                allGrowthScore = totalG / settings.growth.length;
+            }
+
+            // 4. Treasury (Budget logic)
+            let treasuryScore = 100;
+            if (settings.budget > 0) {
+                const remainingRatio = (settings.budget - monthlySpent) / settings.budget;
+                treasuryScore = remainingRatio >= 0 ? 100 : Math.max(0, 100 + (remainingRatio * 100));
+            }
+
+            // 5. Side Quests
+            let questsScore = 100;
+            if (state.quests.length > 0) {
+                const qDone = state.quests.filter(q => q.done).length;
+                questsScore = (qDone / state.quests.length) * 100;
+            }
+
+            // Overall Efficiency (Average of all 5 metrics)
+            const efficiencyScore = (habitsScore + waterScore + allGrowthScore + treasuryScore + questsScore) / 5;
+
+            // Update Chart
+            if (chartInstance) {
+                chartInstance.data.datasets[0].data = [
+                    efficiencyScore, habitsScore, waterScore, allGrowthScore, treasuryScore, questsScore
+                ];
+                chartInstance.update();
+            }
+
+            // Update Master Ring 
+            const masterPercent = Math.round(efficiencyScore);
+            const circle = document.getElementById('master-ring');
+            const circumference = 2 * Math.PI * 46;
+            const offset = circumference - (masterPercent / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+            document.getElementById('master-percentage').textContent = masterPercent + '%';
+
+            // Master ring state colors
+            if (masterPercent === 100) {
+                circle.style.stroke = "#22c55e"; // Green 
+                circle.style.filter = "drop-shadow(0 0 8px rgba(34,197,94,0.4))";
+            } else if (masterPercent < 30) {
+                circle.style.stroke = "#ef4444"; // Red 
+                circle.style.filter = "drop-shadow(0 0 8px rgba(239,68,68,0.4))";
+            } else {
+                circle.style.stroke = "#9333ea"; // Purple
+                circle.style.filter = "none";
+            }
+        }
+
+        let toastTimeout;
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 2000);
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.querySelector('div').innerHTML = `<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
