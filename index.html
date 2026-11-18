@@ -276,10 +276,17 @@
 
         // Global Vars
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'questboard-tracker';
+        // Optional: Paste your own Firebase config object here if you want cloud sync on GitHub Pages.
+        // Leave as null to use automatic browser localStorage (works offline & out-of-the-box).
         let firebaseConfig = null;
         try { firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null; } catch (e) {}
 
         let app, db, auth, userId;
+        let useLocalStorage = !firebaseConfig;
+        
+        // LocalStorage Keys
+        const LS_SETTINGS_KEY = `${appId}_settings`;
+        const LS_LOG_PREFIX = `${appId}_log_`;
         
         // Dates
         const realTodayStr = new Date().toLocaleDateString('en-CA'); 
@@ -317,21 +324,27 @@
 
         // Initialization
         async function initApp() {
-            if (!firebaseConfig) return showError("Database configuration missing.");
             try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                if (!useLocalStorage && firebaseConfig) {
+                    app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    
+                    if (!auth.currentUser) throw new Error("Auth failed");
+                    userId = auth.currentUser.uid;
                 }
-                
-                if (!auth.currentUser) throw new Error("Auth failed");
-                userId = auth.currentUser.uid;
-                
+            } catch (error) {
+                console.warn("Firebase unavailable, falling back to local storage:", error);
+                useLocalStorage = true;
+            }
+
+            try {
                 initRadarChart();
                 await loadSettings();
                 await setDateView(realTodayStr);
@@ -340,15 +353,23 @@
                 const appContent = document.getElementById('app-content');
                 appContent.classList.remove('hidden');
                 setTimeout(() => appContent.classList.remove('opacity-0'), 50);
-
             } catch (error) {
                 console.error("Init Error:", error);
-                showError("Connection failed.");
+                showError("Initialization failed.");
             }
         }
 
-        // Database calls
+        // Database calls (Firebase or LocalStorage fallback)
         async function loadSettings() {
+            if (useLocalStorage) {
+                const raw = localStorage.getItem(LS_SETTINGS_KEY);
+                if (raw) {
+                    try { settings = { ...settings, ...JSON.parse(raw) }; } catch (e) {}
+                } else {
+                    localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+                }
+                return;
+            }
             const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'settings');
             const snap = await getDoc(docRef);
             if (snap.exists()) settings = { ...settings, ...snap.data() };
@@ -356,6 +377,11 @@
         }
 
         async function saveSettings() {
+            if (useLocalStorage) {
+                localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+                showToast();
+                return;
+            }
             if (!userId) return;
             const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'settings');
             await setDoc(docRef, settings);
@@ -363,6 +389,10 @@
         }
 
         async function updateDailyDB() {
+            if (useLocalStorage) {
+                localStorage.setItem(LS_LOG_PREFIX + activeDateStr, JSON.stringify(state));
+                return;
+            }
             if (!userId) return;
             const docRef = doc(db, 'artifacts', appId, 'users', userId, 'logs', activeDateStr);
             await setDoc(docRef, state, { merge: true });
@@ -370,10 +400,27 @@
 
         async function fetchMonthlyExpenses() {
             const targetMonthStr = activeDateStr.substring(0, 7);
+            monthlySpent = 0;
+
+            if (useLocalStorage) {
+                const monthPrefix = LS_LOG_PREFIX + targetMonthStr;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(monthPrefix)) {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data && data.expenses) {
+                                data.expenses.forEach(exp => { monthlySpent += Number(exp.amt || 0); });
+                            }
+                        } catch (e) {}
+                    }
+                }
+                return;
+            }
+
             const logsRef = collection(db, 'artifacts', appId, 'users', userId, 'logs');
             const querySnapshot = await getDocs(logsRef);
             
-            monthlySpent = 0;
             querySnapshot.forEach((docSnap) => {
                 if (docSnap.id.startsWith(targetMonthStr)) {
                     const data = docSnap.data();
@@ -388,15 +435,24 @@
             activeDateStr = dateStr;
             renderCalendarRibbon();
             
-            const d = new Date(dateStr);
+            const d = new Date(dateStr + 'T00:00:00');
             const isToday = dateStr === realTodayStr;
             document.getElementById('active-date-display').textContent = isToday ? "TODAY'S LOG" : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
 
-            const dailyRef = doc(db, 'artifacts', appId, 'users', userId, 'logs', activeDateStr);
-            const snap = await getDoc(dailyRef);
+            let loadedData = null;
+            if (useLocalStorage) {
+                const raw = localStorage.getItem(LS_LOG_PREFIX + activeDateStr);
+                if (raw) {
+                    try { loadedData = JSON.parse(raw); } catch (e) {}
+                }
+            } else {
+                const dailyRef = doc(db, 'artifacts', appId, 'users', userId, 'logs', activeDateStr);
+                const snap = await getDoc(dailyRef);
+                if (snap.exists()) loadedData = snap.data();
+            }
             
-            if (snap.exists()) {
-                state = { context: 'WFH', habitsDone: {}, water: 0, growthDone: {}, expenses: [], quests: [], ...snap.data() };
+            if (loadedData) {
+                state = { context: 'WFH', habitsDone: {}, water: 0, growthDone: {}, expenses: [], quests: [], ...loadedData };
             } else {
                 state = { context: 'WFH', habitsDone: {}, water: 0, growthDone: {}, expenses: [], quests: [] };
                 if (isToday) await updateDailyDB();
@@ -574,10 +630,13 @@
         }
 
         // --- Editing Names Modal ---
-        window.openEditModal = function(type, id, currentName) {
+        window.openEditModal = function(type, id) {
             editingConfig = { type, id };
+            const item = type === 'habit'
+                ? settings.habits.find(x => x.id === id)
+                : settings.growth.find(x => x.id === id);
             document.getElementById('edit-modal-title').textContent = type === 'habit' ? 'Edit Habit Name' : 'Edit Category Name';
-            document.getElementById('edit-modal-input').value = currentName;
+            document.getElementById('edit-modal-input').value = item ? item.name : '';
             document.getElementById('edit-modal').classList.remove('hidden');
             document.getElementById('edit-modal').classList.add('flex');
             document.getElementById('edit-modal-input').focus();
@@ -668,7 +727,7 @@
                             <label for="chk_${h.id}" class="ml-3 text-sm font-light ${isDone ? 'text-neutral-600 line-through' : 'text-neutral-300'} cursor-pointer transition-colors flex-1">${h.name}</label>
                         </div>
                         <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="openEditModal('habit', '${h.id}', '${h.name}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                            <button onclick="openEditModal('habit', '${h.id}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                             <button onclick="deleteHabit('${h.id}')" class="text-neutral-600 hover:text-red-500 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                         </div>
                     </div>
@@ -693,7 +752,7 @@
                         <div class="flex justify-between items-center">
                             <span class="text-sm font-light text-neutral-300 truncate pr-2">${g.name}</span>
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onclick="openEditModal('growth', '${g.id}', '${g.name}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                                <button onclick="openEditModal('growth', '${g.id}')" class="text-neutral-600 hover:text-purple-400 p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                                 <button onclick="deleteGrowthCat('${g.id}')" class="text-neutral-600 hover:text-red-500 p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                             </div>
                         </div>
@@ -728,6 +787,7 @@
             
             if (remaining >= 0) {
                 remainingLabel.className = "text-neutral-400";
+                remainingLabel.innerHTML = `Left: ₹<span id="remaining-disp" class="text-neutral-200">${Math.abs(remaining).toLocaleString('en-IN')}</span>`;
                 bar.className = "h-full transition-all duration-500 bg-purple-600";
             } else {
                 remainingLabel.className = "text-red-500 font-medium";
